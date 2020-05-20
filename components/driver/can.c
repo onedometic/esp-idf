@@ -280,12 +280,12 @@ static inline void can_config_clk_out(uint32_t divider)
 
 /* ---------------------- Runtime Register Functions------------------------- */
 
-static inline void can_set_command(uint8_t commands)
+IRAM_ATTR static inline void can_set_command(uint8_t commands)
 {
     CAN.command_reg.val = commands;
 }
 
-static void can_set_tx_buffer_and_transmit(can_frame_t *frame)
+IRAM_ATTR static void can_set_tx_buffer_and_transmit(can_frame_t *frame)
 {
     //Copy frame structure into TX buffer registers
     for (int i = 0; i < FRAME_MAX_LEN; i++) {
@@ -302,12 +302,12 @@ static void can_set_tx_buffer_and_transmit(can_frame_t *frame)
     can_set_command(command);
 }
 
-static inline uint32_t can_get_status()
+IRAM_ATTR static inline uint32_t can_get_status()
 {
     return CAN.status_reg.val;
 }
 
-static inline uint32_t can_get_interrupt_reason()
+IRAM_ATTR static inline uint32_t can_get_interrupt_reason()
 {
     return CAN.interrupt_reg.val;
 }
@@ -351,7 +351,7 @@ static inline uint32_t can_get_rx_message_counter()
 
 /* -------------------- Interrupt and Alert Handlers ------------------------ */
 
-static void can_alert_handler(uint32_t alert_code, int *alert_req)
+IRAM_ATTR static void can_alert_handler(uint32_t alert_code, int *alert_req)
 {
     if (p_can_obj->alerts_enabled & alert_code) {
         //Signify alert has occurred
@@ -369,7 +369,7 @@ static void can_alert_handler(uint32_t alert_code, int *alert_req)
     }
 }
 
-static void can_intr_handler_err_warn(can_status_reg_t *status, int *alert_req)
+IRAM_ATTR static void can_intr_handler_err_warn(can_status_reg_t *status, int *alert_req)
 {
     if (status->bus) {
         if (status->error) {
@@ -407,7 +407,7 @@ static void can_intr_handler_err_warn(can_status_reg_t *status, int *alert_req)
     }
 }
 
-static void can_intr_handler_err_passive(int *alert_req)
+IRAM_ATTR static void can_intr_handler_err_passive(int *alert_req)
 {
     uint32_t tec, rec;
     can_get_error_counters(&tec, &rec);
@@ -422,7 +422,7 @@ static void can_intr_handler_err_passive(int *alert_req)
     }
 }
 
-static void can_intr_handler_bus_err(int *alert_req)
+IRAM_ATTR static void can_intr_handler_bus_err(int *alert_req)
 {
     // ECC register is read to re-arm bus error interrupt. ECC is not used
     (void) can_get_error_code_capture();
@@ -430,7 +430,7 @@ static void can_intr_handler_bus_err(int *alert_req)
     can_alert_handler(CAN_ALERT_BUS_ERROR, alert_req);
 }
 
-static void can_intr_handler_arb_lost(int *alert_req)
+IRAM_ATTR static void can_intr_handler_arb_lost(int *alert_req)
 {
     //ALC register is read to re-arm arb lost interrupt. ALC is not used
     (void) can_get_arbitration_lost_capture();
@@ -438,7 +438,7 @@ static void can_intr_handler_arb_lost(int *alert_req)
     can_alert_handler(CAN_ALERT_ARB_LOST, alert_req);
 }
 
-static void can_intr_handler_rx(BaseType_t *task_woken, int *alert_req)
+IRAM_ATTR static void can_intr_handler_rx(BaseType_t *task_woken, int *alert_req)
 {
     can_rx_msg_cnt_reg_t msg_count_reg;
     msg_count_reg.val = can_get_rx_message_counter();
@@ -458,7 +458,7 @@ static void can_intr_handler_rx(BaseType_t *task_woken, int *alert_req)
     //Todo: Check for data overrun of RX FIFO, then trigger alert
 }
 
-static void can_intr_handler_tx(can_status_reg_t *status, int *alert_req)
+IRAM_ATTR static void can_intr_handler_tx(can_status_reg_t *status, int *alert_req)
 {
     //Handle previously transmitted frame
     if (status->tx_complete) {
@@ -488,7 +488,7 @@ static void can_intr_handler_tx(can_status_reg_t *status, int *alert_req)
     }
 }
 
-static void can_intr_handler_main(void *arg)
+IRAM_ATTR static void can_intr_handler_main(void *arg)
 {
     BaseType_t task_woken = pdFALSE;
     int alert_req = 0;
@@ -726,7 +726,7 @@ esp_err_t can_driver_install(const can_general_config_t *g_config, const can_tim
     //Allocate GPIO and Interrupts
     can_configure_gpio(g_config->tx_io, g_config->rx_io, g_config->clkout_io, g_config->bus_off_io);
     (void) can_get_interrupt_reason();                  //Read interrupt reg to clear it before allocating ISR
-    ESP_ERROR_CHECK(esp_intr_alloc(ETS_CAN_INTR_SOURCE, 0, can_intr_handler_main, NULL, &p_can_obj->isr_handle));
+    ESP_ERROR_CHECK(esp_intr_alloc(ETS_CAN_INTR_SOURCE, ESP_INTR_FLAG_IRAM, can_intr_handler_main, NULL, &p_can_obj->isr_handle));
     //Todo: Allow interrupt to be registered to specified CPU
     CAN_EXIT_CRITICAL();
 
